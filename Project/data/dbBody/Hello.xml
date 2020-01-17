@@ -1,0 +1,6 @@
+<?xml version = "1.0"?>
+<books>
+	<id>1</id>
+	<item>Development</item>
+	<description>Camel In Action</description>
+</books>

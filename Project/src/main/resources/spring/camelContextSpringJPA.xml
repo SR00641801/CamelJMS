@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:camel="http://camel.apache.org/schema/spring"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd        http://camel.apache.org/schema/spring http://camel.apache.org/schema/spring/camel-spring.xsd">
+    <bean class="org.apache.commons.dbcp.BasicDataSource"
+        destroy-method="close" id="dataSource">
+        <property name="driverClassName" value="org.h2.Driver"/>
+        <property name="url" value="jdbc:h2:mem:testdb"/>
+        <property name="username" value="sa"/>
+        <property name="password" value=""/>
+    </bean>
+    <bean class="org.mycompany.bindy.BookService" id="processBody"/>
+    <camelContext id="camelContext-85b5b9ab-6448-4862-8a50-644ea3a700db"
+        streamCache="true" trace="false" xmlns="http://camel.apache.org/schema/spring">
+        <dataFormats>
+            <json id="json" library="Jackson" unmarshalTypeName="org.mycompany.bindy.Book"/>
+        </dataFormats>
+        <restConfiguration apiContextPath="/swagger"
+            apiContextRouteId="swagger" apiHost="localhost:8181"
+            bindingMode="auto" component="servlet" contextPath="/jpa"
+            enableCORS="true" host="localhost" port="8181">
+            <dataFormatProperty key="prettyprint" value="true"/>
+            <camel:apiProperty key="api.title" value="Book API"/>
+            <camel:apiProperty key="api.version" value="1.0.0"/>
+            <camel:apiProperty key="api.description" value="Book Service that allows to add and find books"/>
+        </restConfiguration>
+        <camel:rest id="rest-7e25d8da-6313-48f0-8110-a35cdeb0d9a8" path="/books">
+            <camel:post consumes="application/json"
+                id="get-09f0de93-42b7-448f-94f0-ddb1f936f38b"
+                outType="org.mycompany.bindy.Book"
+                produces="application/json"
+                type="org.mycompany.bindy.Book" uri="/insertList">
+                <camel:description>Insert Body to H2DB</camel:description>
+                <camel:to uri="direct:insertBooks"/>
+            </camel:post>
+            <camel:get consumes="application/json"
+                id="get-12e12be3-f628-4913-87b1-e46c8e7ce725"
+                produces="application/json" uri="/getList">
+                <camel:description>List the Bodies from DB</camel:description>
+                <camel:to uri="direct:findBooks"/>
+            </camel:get>
+        </camel:rest>
+        <camel:route id="_insertRouteJPA">
+            <camel:from id="_from1" uri="direct:insertBooks"/>
+            <camel:log id="_log2" message="Body :::: ${body}"/>
+            <camel:split id="_split1">
+                <camel:jsonpath>$</camel:jsonpath>
+                <camel:setHeader headerName="bookID" id="_setHeader1">
+                    <camel:jsonpath>$.id</camel:jsonpath>
+                </camel:setHeader>
+                <!--<camel:setHeader headerName="bookItem"> <camel:jsonpath>$.item</camel:jsonpath> 
+						</camel:setHeader> <camel:setHeader headerName="bookDescription"> <camel:jsonpath>$.description</camel:jsonpath> 
+						</camel:setHeader> -->
+                <camel:to id="_to1" uri="bean:processBody"/>
+                <camel:to id="_to2" uri="jpa:org.mycompany.bindy.Book?consumer.nativeQuery=insert into books (id, item, description, processed) values (:#bookID, :#bookItem, :#bookDescription)"/>
+                <camel:log id="_log1" message="ROW INSERTED"/>
+            </camel:split>
+        </camel:route>
+        <camel:route id="_selectRouteJpa">
+            <!-- <camel:from id="_from2" uri="direct:findBooks" /> -->
+            <camel:from id="_to3" uri="jpa:org.mycompany.bindy.Book?entityType=org.mycompany.bindy.Book&amp;consumer.nativeQuery=select * from books m where m.processed = 'false'&amp;consumer.delay=10000&amp;consumeDelete=false&amp;consumeLockEntity=true&amp;consumer.skipLockedEntity=true"/>
+            <!-- <camel:to uri="bean:processedOrder"/> -->
+            <camel:log id="_log3" message="Body from DB :::: ${body}"/>
+        </camel:route>
+    </camelContext>
+</beans>

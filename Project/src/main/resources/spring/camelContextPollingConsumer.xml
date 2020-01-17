@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:camel="http://camel.apache.org/schema/spring"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd        http://camel.apache.org/schema/spring http://camel.apache.org/schema/spring/camel-spring.xsd">
+    <import resource="activemq_NonXA.xml"/>
+    <camelContext id="camelContext-45efaa47-0c2f-4d85-a1d9-f1ce1d175fc4"
+        trace="false" xmlns="http://camel.apache.org/schema/spring">
+        <camel:onException>
+            <camel:exception>java.sql.SQLException</camel:exception>
+            <camel:handled>
+                <camel:constant>true</camel:constant>
+            </camel:handled>
+            <camel:log message="Inside Exception Block"/>
+            <camel:log message="Exception is ::: ${exception.message}"/>
+            <camel:to uri="activemq:queue:errorQueue"/>
+        </camel:onException>
+        <route id="_route14">
+            <camel:from id="_from1" uri="activemq:queue:fromQueue"/>
+            <transacted id="_transacted1" ref="PROPAGATION_REQUIRED"/>
+            <log id="_log2" message="REDELIVERED: ${header.JMSRedelivered}"/>
+            <camel:log id="_log1" message="Body from file :::: ${body}"/>
+            <camel:throwException
+                exceptionType="java.sql.SQLException"
+                id="_throwException1" message="Exception thrown"/>
+            <camel:to id="_to1" uri="activemq:queue:toQueue"/>
+        </route>
+        <camel:route id="_route15">
+        	<camel:from uri="activemq:queue:errorQueue"/>
+        	<camel:log message="In second Route"/>
+        	<camel:to uri="activemq:queue:toQueue"/>
+            <pollEnrich id="_pollEnrich1">
+                <constant>activemq:queue:fromQueue</constant>
+            </pollEnrich>
+            <camel:log id="_log3" message="${body}"/>
+        </camel:route>
+    </camelContext>
+</beans>

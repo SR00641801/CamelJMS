@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:camel="http://camel.apache.org/schema/spring"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd        http://camel.apache.org/schema/spring http://camel.apache.org/schema/spring/camel-spring.xsd">
+    <import resource="activemq.xml"/>
+    <bean class="org.mycompany.bindy.MyAggregationStrategy" id="myAggregationStrategy"/>
+    <camelContext id="camelContext-8f169e27-b3ce-4156-b6e2-d7807e339545"
+        trace="false" xmlns="http://camel.apache.org/schema/spring">
+        <camel:dataFormats>
+            <camel:bindy classType="org.mycompany.bindy.EmployeeCSV2Xml"
+                id="bindy" type="Csv"/>
+            <camel:jaxb contextPath="org.mycompany.bindy" id="jaxb" prettyPrint="true"/>
+        </camel:dataFormats>
+        <route id="_route8">
+            <camel:from id="_from1" uri="file:data/csv?noop=true"/>
+            <camel:split id="_split1" streaming="true">
+                <camel:tokenize token="\n"/>
+                <camel:unmarshal id="_unmarshal1" ref="bindy"/>
+                <camel:aggregate completionInterval="1000"
+                    id="_aggregate1" strategyRef="myAggregationStrategy">
+                    <camel:correlationExpression>
+                        <camel:constant>true</camel:constant>
+                    </camel:correlationExpression>
+                    <camel:marshal id="_marshal1" ref="jaxb"/>
+                    <camel:to id="_to1" uri="activemq:queue:csv2xmlqueue"/>
+                    <camel:log id="_log1" message=" after marshal ::: ${body}"/>
+                </camel:aggregate>
+            </camel:split>
+        </route>
+    </camelContext>
+</beans>

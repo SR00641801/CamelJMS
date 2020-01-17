@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:camel="http://camel.apache.org/schema/spring"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd        http://camel.apache.org/schema/spring http://camel.apache.org/schema/spring/camel-spring.xsd">
+    <bean class="org.apache.commons.dbcp.BasicDataSource"
+        destroy-method="close" id="dataSource">
+        <property name="driverClassName" value="org.h2.Driver"/>
+        <property name="url" value="jdbc:h2:mem:testdb"/>
+        <property name="username" value="sa"/>
+        <property name="password" value=""/>
+    </bean>
+    <camelContext id="camelContext-8b9bd91d-fe61-4a7b-98c6-48e86e827324"
+        trace="false" xmlns="http://camel.apache.org/schema/spring">
+        <camel:onException>
+            <!-- It will handle the thrown RuntimeException and rollback the transaction to the DB's initial stage.
+		In this case DB will be null after rolling back, as insertion and updation both are happening from code within same transaction  -->
+            <camel:exception>java.lang.IllegalArgumentException</camel:exception>
+            <camel:continued>
+                <camel:constant>true</camel:constant>
+            </camel:continued>
+            <camel:log message="Inside Exception block"/>
+            <camel:rollback markRollbackOnlyLast="true"/>
+        </camel:onException>
+        <route id="_route2">
+            <!-- To consume from file -->
+            <from id="_from1" uri="file:data?noop=true"/>
+            <transacted id="_transacted1"/>
+            <!-- To insert into DB initially -->
+            <camel:to id="_to2" uri="direct:sqlInsertRoute"/>
+            <!-- To Update into DB initially -->
+            <!-- <camel:to id="_to3" uri="direct:sqlUpdateRoute"/> -->
+            <!-- To check after rolling back -->
+            <to id="_to4" uri="sql:select * from books"/>
+            <log id="_log1" message="Final Body after rollback :::::::: ${body}"/>
+        </route>
+        <camel:route id="_route3">
+            <camel:from id="_from2" uri="direct:sqlInsertRoute"/>
+            <setHeader headerName="reqID" id="_setHeader1">
+                <xpath resultType="String">/books/id</xpath>
+            </setHeader>
+            <setHeader headerName="reqItem" id="_setHeader2">
+                <xpath resultType="String">/books/item</xpath>
+            </setHeader>
+            <setHeader headerName="reqDesc" id="_setHeader3">
+                <xpath resultType="String">/books/description</xpath>
+            </setHeader>
+            <to id="_to1" uri="sql:insert into books (id, item, description) values (:#reqId, :#reqItem, :#reqDesc)"/>
+            <to id="_to5" uri="sql:select * from books"/>
+            <log id="_log2" message=" Body from Books Db :::::  ${body}"/>
+        </camel:route>
+        <!--  <camel:route id="_route4">
+            <camel:from id="_from3" uri="direct:sqlUpdateRoute"/>
+            <to id="_to6" uri="sql:update books set description = 'Red Hat Fuse'"/>
+            <to id="_to7" uri="sql:select * from books"/>
+            <log id="_log3" message=" Body from Books Db after Update :::::  ${body}"/>
+            <camel:throwException
+                exceptionType="java.lang.IllegalArgumentException"
+                id="_throwException1" message="WHOA !!!! EXCEPTION OCCURS"/>
+        </camel:route> -->
+        <camel:route id="_route4">
+            <!-- <camel:from id="_from3" uri="timer://foo?period=1000"/> -->
+            <camel:from id="_to3" uri="sql:select * from books where id=1"/>
+            <camel:log id="_log3" message=" Body from timer :::::: ${body}"/>
+        </camel:route>
+    </camelContext>
+</beans>

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:camel="http://camel.apache.org/schema/spring"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd        http://camel.apache.org/schema/spring http://camel.apache.org/schema/spring/camel-spring.xsd">
+    <camelContext id="camelContext-b9a7f40e-360f-48eb-b6c6-3dc4be677025"
+        threadNamePattern="Riding the thread #counter#" trace="false" xmlns="http://camel.apache.org/schema/spring">
+        <threadPoolProfile id="customProfile" maxPoolSize="5"
+            maxQueueSize="100" poolSize="5"/>
+        <route id="_route10">
+            <from id="_from1" uri="timer:foo?period=1000"/>
+            <camel:setBody id="_setBody1">
+                <camel:constant>Hello World</camel:constant>
+            </camel:setBody>
+            <camel:to id="_to1" uri="seda:input"/>
+            <camel:log id="_log3" message="In the timer route ::: ${body}"/>
+        </route>
+        <camel:route id="_route11">
+            <camel:from id="_from2" uri="seda:input"/>
+            <camel:threads executorServiceRef="customProfile" id="_threads1">
+                <camel:log id="_log1" message="${body}"/>
+            </camel:threads>
+            <camel:transform id="_transform1">
+                <camel:constant>Hello Seda</camel:constant>
+            </camel:transform>
+            <camel:to id="_to2" uri="seda:output"/>
+        </camel:route>
+        <camel:route id="_route12">
+            <camel:from id="_from3" uri="seda:output"/>
+            <camel:log id="_log2" message="From output seda :::: ${body}"/>
+        </camel:route>
+    </camelContext>
+</beans>

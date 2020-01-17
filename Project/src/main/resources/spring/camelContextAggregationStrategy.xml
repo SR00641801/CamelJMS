@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:camel="http://camel.apache.org/schema/spring"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd        http://camel.apache.org/schema/spring http://camel.apache.org/schema/spring/camel-spring.xsd">
+    <bean class="org.apache.activemq.camel.component.ActiveMQComponent" id="activemq">
+        <property name="connectionFactory">
+            <bean class="org.apache.activemq.ActiveMQConnectionFactory">
+                <property name="brokerURL" value="tcp://localhost:61616"/>
+                <property name="userName" value="admin"/>
+                <property name="password" value="admin"/>
+            </bean>
+        </property>
+    </bean>
+    <bean class="org.mycompany.Processor.MyAggregationStrategy" id="myStrategy"/>
+    <camelContext id="camelContext-eb5bfc45-68f4-447c-b90e-a243826a45dc"
+        trace="false" xmlns="http://camel.apache.org/schema/spring">
+        <dataFormats>
+            <jacksonxml id="jack" unmarshalTypeName="org.mycompany.Processor.Employee"/>
+        </dataFormats>
+        <route id="_route1">
+            <from id="_from1" uri="activemq:queue:somequeue"/>
+            <log id="_log1" message="${body}"/>
+            <aggregate completionSize="4" completionTimeout="10000"
+                id="_aggregate1" strategyRef="myStrategy">
+                <correlationExpression>
+                    <xpath resultType="String">/Employee/band</xpath>
+                </correlationExpression>
+                <completionPredicate>
+                    <simple>${body} contains 'U5'</simple>
+                </completionPredicate>
+                <log id="_log2" message="Body is ::: ${body}"/>
+                <to id="_to1" uri="activemq:queue:aggregatedQueue"/>
+            </aggregate>
+        </route>
+    </camelContext>
+</beans>

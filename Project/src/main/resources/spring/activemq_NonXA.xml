@@ -1,0 +1,72 @@
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	 xmlns:broker="http://activemq.apache.org/schema/core"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd        http://camel.apache.org/schema/spring http://camel.apache.org/schema/spring/camel-spring.xsd http://activemq.apache.org/schema/core http://activemq.apache.org/schema/core/activemq-core.xsd">
+
+
+ <!-- TX configuration -->
+    <bean id="transactionManager" class="org.springframework.jms.connection.JmsTransactionManager">
+        <property name="connectionFactory" ref="pooledJmsConnectionFactory"/>
+    </bean>
+
+    <bean id="PROPAGATION_REQUIRED" class="org.apache.camel.spring.spi.SpringTransactionPolicy">
+        <property name="transactionManager" ref="transactionManager"/>
+        <property name="propagationBehaviorName" value="PROPAGATION_REQUIRED"/>
+    </bean>
+
+    <!-- JMS configuration -->
+    <bean id="pooledJmsConnectionFactory" class="org.apache.activemq.pool.PooledConnectionFactory" init-method="start" destroy-method="stop">
+        <property name="maxConnections" value="8" />
+        <property name="connectionFactory" ref="jmsConnectionFactory" />
+    </bean>
+
+    <bean id="jmsConnectionFactory" class="org.apache.activemq.ActiveMQConnectionFactory" primary="true">
+        <property name="brokerURL" value="tcp://localhost:61616"/>
+        <!-- <property name="redeliveryPolicy">
+            <bean class="org.apache.activemq.RedeliveryPolicy">
+                <property name="maximumRedeliveries" value="-1"/>
+                <property name="redeliveryDelay" value="60000"/>
+            </bean>
+        </property> -->
+    </bean>
+
+    <bean id="activemqTx" class="org.apache.activemq.camel.component.ActiveMQComponent">
+        <property name="connectionFactory" ref="pooledJmsConnectionFactory"/>
+        <property name="transacted" value="true"/>
+        <property name="transactionManager" ref="transactionManager"/>
+        <property name="cacheLevelName" value="CACHE_CONSUMER" />
+        <property name="lazyCreateTransactionManager" value="true" />
+        <property name="transferExchange" value="true" />
+    </bean>
+
+    <!-- JMS configuration for test enqueue/dequeue without transactions -->
+    <bean id="activemq" class="org.apache.activemq.camel.component.ActiveMQComponent">
+        <property name="connectionFactory" ref="pooledJmsConnectionFactory"/>
+        <property name="transacted" value="true"/>
+    </bean>
+
+	<bean id="amqpjmsConnectionFactory"
+		class="org.apache.qpid.jms.JmsConnectionFactory">
+		<property name="remoteURI" value="amqp://localhost:5672" />
+	</bean>
+
+	<!-- Camel AMQP Component configuration -->
+	<bean id="amqp"
+		class="org.apache.camel.component.amqp.AMQPComponent">
+		<property name="connectionFactory"
+			ref="amqpjmsConnectionFactory" />
+		<property name="transacted" value="true" />
+		<property name="transactionManager" ref="transactionManager" />
+		<property name="cacheLevelName" value="CACHE_CONSUMER" />
+		<property name="lazyCreateTransactionManager" value="true" />
+		<property name="transferExchange" value="true" />
+	</bean>
+    
+    
+    
+    <!-- <broker:broker useJmx="false" persistent="false" brokerName="myBroker">
+    <broker:transportConnectors>
+      <broker:transportConnector uri="tcp://localhost:61616"/>
+    </broker:transportConnectors>
+  </broker:broker> -->
+</beans>

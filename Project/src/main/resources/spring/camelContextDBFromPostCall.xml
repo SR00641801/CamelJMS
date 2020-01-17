@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:camel="http://camel.apache.org/schema/spring"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd        http://camel.apache.org/schema/spring http://camel.apache.org/schema/spring/camel-spring.xsd">
+    <bean class="org.apache.commons.dbcp.BasicDataSource"
+        destroy-method="close" id="dataSource">
+        <property name="driverClassName" value="org.h2.Driver"/>
+        <property name="url" value="jdbc:h2:mem:testdb"/>
+        <property name="username" value="sa"/>
+        <property name="password" value=""/>
+    </bean>
+    <import resource="activemq.xml"/>
+    <camelContext id="camelContext-deddeb4c-e67b-4e8d-861e-70e3965fb65b"
+        trace="false" xmlns="http://camel.apache.org/schema/spring">
+        <dataFormats>
+            <json id="json" library="Jackson"/>
+            <xmljson id="xmljson"/>
+        </dataFormats>
+        <restConfiguration bindingMode="auto" component="restlet"
+            contextPath="/camel-rest-jpa" host="localhost" port="8089"/>
+        <rest id="rest-c51ddc38-a34a-48bd-a21f-8023241aa02f">
+            <get consumes="application/xml"
+                id="b2d83a3f-01b2-470d-98d3-934b89d4fb3c"
+                produces="application/xml" uri="/getListOfBook">
+                <to uri="direct:getfromDB"/>
+            </get>
+            <post consumes="application/json"
+                id="9419ec2f-9d69-476a-9a9a-9407c2939d89"
+                type="org.mycompany.springH2DB.BookRequest" uri="/insertToDB">
+                <to uri="direct:insertIntoDBRoute"/>
+            </post>
+        </rest>
+        <route id="_route6">
+            <camel:from id="_from1" uri="direct:insertIntoDBRoute"/>
+            <camel:log id="_log1" message="Body is :::: ${body}"/>
+            <split id="_split1" streaming="true">
+                <xtokenize mode="i">//BookDetails</xtokenize>
+                <log id="_log2" message="Splitted Body :::: ${body}"/>
+                <setHeader headerName="reqID" id="_setHeader1">
+                    <xpath resultType="String">/BookDetails/id</xpath>
+                </setHeader>
+                <setHeader headerName="reqItem" id="_setHeader2">
+                    <xpath resultType="String">/BookDetails/item</xpath>
+                </setHeader>
+                <setHeader headerName="reqDesc" id="_setHeader3">
+                    <xpath resultType="String">/BookDetails/description</xpath>
+                </setHeader>
+                <camel:to id="_to1" uri="sql:insert into books (id, item, description) values (:#reqId, :#reqItem, :#reqDesc)"/>
+            </split>
+        </route>
+        <camel:route id="_route7">
+            <camel:from id="_from2" uri="direct:getfromDB"/>
+            <camel:setBody id="_setBody1">
+                <camel:simple>select * from books</camel:simple>
+            </camel:setBody>
+            <camel:to id="_to2" uri="jdbc:dataSource?outputType=SelectList&amp;outputClass=org.mycompany.springH2DB.BookDetailsDBMapping"/>
+            <camel:marshal id="_marshal1" ref="json"/>
+            <camel:log id="_log3" message="Select Body from DB :::::: ${body}"/>
+            <camel:unmarshal id="_unmarshal1" ref="xmljson"/>
+            <camel:log id="_log4" message="Select Body from DB after unmarshal:::::: ${body}"/>
+            <camel:setHeader headerName="getID" id="_setHeader4">
+                <camel:xpath resultType="String">//a/e/ID[1]</camel:xpath>
+            </camel:setHeader>
+            <camel:log id="_log5" message="HeaderValue is ==========  ${header.getID}"/>
+            <camel:to id="_to3" uri="file:data/xml/dbBody?noop=true"/>
+        </camel:route>
+        <camel:route id="_route9">
+            <camel:from id="_from3" uri="file:data/xml/dbBody?noop=true"/>
+            <camel:to id="_to4" uri="activemq:queue:DBXML"/>
+            <camel:log id="_log6" message="body after sending to queue::::: ${body}"/>
+        </camel:route>
+    </camelContext>
+</beans>
